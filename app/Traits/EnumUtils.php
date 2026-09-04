@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Traits;
 
 trait EnumUtils
@@ -50,4 +52,3 @@ trait EnumUtils
         return array_filter(self::cases(), static fn ($case) => in_array($case->value, $included, true));
     }
 }
-
