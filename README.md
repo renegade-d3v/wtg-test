@@ -1,59 +1,246 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# WTG Test API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+REST API for asynchronous accommodation offer imports, cheapest-offer search, and safe reservations.
 
-## About Laravel
+## Stack
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Laravel 12** + PHP 8.4
+- **MySQL 8** (persisted via Docker volume)
+- **Redis 7** — queue driver (dedicated `imports` queue)
+- **Docker** — nginx + php-fpm + mysql + redis
+- **Pest** — feature tests
+- **L5-Swagger** — OpenAPI documentation
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Getting started
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```bash
+git clone git@github.com:renegade-d3v/wtg-test.git
+cd wtg-test
+cp .env.example .env
+```
 
-## Learning Laravel
+### With Docker (recommended)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+```bash
+# First run — builds image, waits for MySQL, runs migrations automatically
+docker compose up -d --build
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+# Subsequent starts
+docker compose up -d
 
-## Laravel Sponsors
+# Stop
+docker compose down
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+App is available at **http://localhost**
+Swagger UI: **http://localhost/api/documentation**
 
-### Premium Partners
+### Without Docker
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+Requires a local MySQL 8 and Redis instance; point `DB_HOST`/`REDIS_HOST` in `.env` at them (e.g. `127.0.0.1`), then:
 
-## Contributing
+```bash
+composer setup   # install deps, copy .env, generate key, migrate, npm install & build
+composer dev     # start php artisan serve + queue worker + vite concurrently
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## API endpoints
 
-## Code of Conduct
+| Method | Path | Description |
+|--------|------|--------------|
+| `POST` | `/api/imports` | Queue a new offers import |
+| `GET` | `/api/imports/{import}` | Get the current status of an import |
+| `GET` | `/api/properties` | Search properties by their cheapest current offer |
+| `POST` | `/api/offers/{offer}/reservations` | Book an offer |
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### POST /api/imports
 
-## Security Vulnerabilities
+**Request body:**
+```json
+{
+  "supplier": "supplier-a",
+  "external_import_id": "import-2026-09-01-001",
+  "sent_at": "2026-09-01T10:00:00Z",
+  "offers": [
+    {
+      "external_id": "offer-a-10001",
+      "property": { "code": "BCN-0001", "name": "Apartment near Sagrada Familia", "city": "Barcelona" },
+      "check_in": "2026-10-10",
+      "check_out": "2026-10-15",
+      "max_guests": 4,
+      "price": 72500,
+      "currency": "EUR",
+      "available_units": 2,
+      "expires_at": "2026-09-10T23:59:59Z"
+    }
+  ]
+}
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+**Response — `202 Accepted`:**
+```json
+{ "data": { "id": 15, "status": "pending" } }
+```
 
-## License
+Offer processing happens asynchronously in `ProcessImportJob`, not in the request.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### GET /api/imports/{import}
+
+```json
+{
+  "data": {
+    "id": 15,
+    "supplier": "supplier-a",
+    "external_import_id": "import-2026-09-01-001",
+    "sent_at": "2026-09-01T10:00:00Z",
+    "status": "completed",
+    "total_offers": 20,
+    "processed_offers": 20,
+    "error": null,
+    "created_at": "2026-09-01T10:00:02Z",
+    "completed_at": "2026-09-01T10:00:04Z"
+  }
+}
+```
+
+`status` is one of `pending`, `processing`, `completed`, `failed`.
+
+### GET /api/properties
+
+```
+GET /api/properties?city=Barcelona&check_in=2026-10-10&check_out=2026-10-15&guests=2&page=1
+```
+
+```json
+{
+  "data": [
+    {
+      "code": "BCN-0001",
+      "name": "Apartment near Sagrada Familia",
+      "city": "Barcelona",
+      "best_offer": {
+        "id": 125,
+        "supplier": "supplier-a",
+        "price": 72500,
+        "currency": "EUR",
+        "available_units": 2,
+        "expires_at": "2026-09-10T23:59:59Z"
+      }
+    }
+  ],
+  "links": { "first": "...", "last": "...", "prev": null, "next": "..." },
+  "meta": { "current_page": 1, "per_page": 15, "total": 1 }
+}
+```
+
+Filtering, cheapest-offer selection, sorting, and pagination all run in a single database query — see `SearchPropertiesAction`.
+
+### POST /api/offers/{offer}/reservations
+
+**Request body:**
+```json
+{
+  "client_reference": "web-order-9f782b1c",
+  "customer_name": "John Smith",
+  "customer_email": "john@example.com"
+}
+```
+
+**Response — `201 Created`:**
+```json
+{
+  "data": {
+    "id": 42,
+    "offer_id": 125,
+    "client_reference": "web-order-9f782b1c",
+    "customer_name": "John Smith",
+    "customer_email": "john@example.com",
+    "status": "confirmed",
+    "created_at": "2026-09-01T10:05:00Z"
+  }
+}
+```
+
+## Commands
+
+All commands can also be run inside the Docker container:
+
+```bash
+docker compose exec app php artisan <command>
+```
+
+### Migrations & seeders
+
+```bash
+docker compose exec app php artisan migrate
+docker compose exec app php artisan db:seed
+```
+
+`SupplierSeeder` creates the two required suppliers (`supplier-a`, `supplier-b`) in every environment. The rest — sample properties, imports, offers, and reservations — only seed when `APP_ENV=local`.
+
+### Queue worker
+
+Import processing runs on a dedicated `imports` queue:
+
+```bash
+docker compose exec app php artisan queue:work --queue=imports
+```
+
+### Tests
+
+Tests run against a real MySQL database (`{DB_DATABASE}_test`, e.g. `wtg_db_test`) instead of SQLite, so the suite exercises the same engine as production. Create it once:
+
+```bash
+docker compose exec db mysql -uroot -proot -e "
+  CREATE DATABASE IF NOT EXISTS wtg_db_test;
+  GRANT ALL PRIVILEGES ON wtg_db_test.* TO 'wtg_app'@'%';
+"
+```
+
+Then run:
+
+```bash
+composer test                                    # Pest suite
+composer test:types                               # type coverage (min 100%)
+
+# Inside container
+docker compose exec app php vendor/bin/pest
+docker compose exec app php vendor/bin/pest --filter=ReservationApiTest
+```
+
+### Linting
+
+```bash
+composer lint        # fix code style with Laravel Pint
+composer test:lint   # check only, do not modify files
+```
+
+### API documentation
+
+```bash
+composer doc         # regenerate OpenAPI spec
+```
+
+Then open **http://localhost/api/documentation**.
+
+## Import idempotency
+
+- `imports` has a unique index on `(supplier_id, external_import_id)`. `CreateImportAction` uses `createOrFirst()` and only dispatches `ProcessImportJob` when a new row was actually created — a repeated submission returns the existing import untouched, without re-queuing it.
+- `ProcessImportJob` also implements `ShouldBeUnique`, keyed on a hash of `supplier_id:external_import_id`, as a second line of defense against two workers processing the same import concurrently.
+- `offers` has a unique index on `(supplier_id, external_id)`. `ProcessImportAction` uses `updateOrCreate()`, so a later import for the same offer updates the existing row instead of creating a duplicate.
+
+## Reservation safety
+
+Two simultaneous bookings of the last unit are prevented by an atomic update inside a transaction:
+
+```sql
+UPDATE offers
+SET available_units = available_units - 1
+WHERE id = ?
+  AND available_units > 0
+  AND expires_at > CURRENT_TIMESTAMP
+```
+
+The affected row count is checked before the reservation is inserted — if no row was updated, the API returns `409 Conflict`. InnoDB locks the row for the duration of the transaction, so a second concurrent request re-evaluates `available_units > 0` against the already-decremented value and cannot also succeed.
+
+`reservations.client_reference` is unique: resubmitting the same reference for the same offer returns the existing reservation instead of booking again; reusing it for a *different* offer returns `409 Conflict`.

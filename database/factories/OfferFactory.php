@@ -13,8 +13,6 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 final class OfferFactory extends Factory
 {
     /**
-     * Define the model's default state.
-     *
      * @return array<string, mixed>
      */
     public function definition(): array
@@ -38,9 +36,6 @@ final class OfferFactory extends Factory
         ];
     }
 
-    /**
-     * Offer with no units left to book.
-     */
     public function soldOut(): self
     {
         return $this->state(fn (array $attributes) => [
@@ -48,13 +43,52 @@ final class OfferFactory extends Factory
         ]);
     }
 
-    /**
-     * Offer whose validity window has already passed.
-     */
     public function expired(): self
     {
         return $this->state(fn (array $attributes) => [
             'expires_at' => fake()->dateTimeBetween('-3 months', '-1 day'),
+        ]);
+    }
+
+    public function withCheckIn(string $date): self
+    {
+        return $this->state(fn (array $attributes) => [
+            'check_in' => $date,
+        ]);
+    }
+
+    public function withCheckOut(string $date): self
+    {
+        return $this->state(fn (array $attributes) => [
+            'check_out' => $date,
+        ]);
+    }
+
+    public function withGuests(int $maxGuests): self
+    {
+        return $this->state(fn (array $attributes) => [
+            'max_guests' => $maxGuests,
+        ]);
+    }
+
+    public function withPrice(int $cents): self
+    {
+        return $this->state(fn (array $attributes) => [
+            'price' => $cents,
+        ]);
+    }
+
+    public function withAvailableUnits(int $units): self
+    {
+        return $this->state(fn (array $attributes) => [
+            'available_units' => $units,
+        ]);
+    }
+
+    public function withExpiresAt(string $date): self
+    {
+        return $this->state(fn (array $attributes) => [
+            'expires_at' => $date,
         ]);
     }
 }

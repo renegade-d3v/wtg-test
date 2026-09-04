@@ -16,8 +16,8 @@ return new class extends Migration
         Schema::create('properties', static function (Blueprint $table) {
             $table->id();
             $table->string('code')->unique();
-            $table->string('name')->index();
-            $table->string('city');
+            $table->string('name');
+            $table->string('city')->index();
             $table->timestamps();
         });
     }

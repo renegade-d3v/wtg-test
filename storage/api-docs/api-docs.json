@@ -1,0 +1,577 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "WTG API",
+        "description": "WTG — REST API",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/api/imports": {
+            "post": {
+                "tags": [
+                    "Imports"
+                ],
+                "summary": "Queue a new offers import",
+                "operationId": "0e271261e5770899f29afa756b257cb6",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StoreImportRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Import accepted and queued for processing",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/ImportStatusResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/imports/{import}": {
+            "get": {
+                "tags": [
+                    "Imports"
+                ],
+                "summary": "Get the current status of an import",
+                "operationId": "1fd483c6d9e66cbac9d7baaebb33d348",
+                "parameters": [
+                    {
+                        "name": "import",
+                        "in": "path",
+                        "description": "Import ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Import found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/ImportResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Import not found"
+                    }
+                }
+            }
+        },
+        "/api/properties": {
+            "get": {
+                "tags": [
+                    "Properties"
+                ],
+                "summary": "Search properties by their cheapest currently available offer",
+                "operationId": "e83a7fc5b1d98569892c10b7b0223879",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/SearchPropertiesCityParameter"
+                    },
+                    {
+                        "$ref": "#/components/parameters/SearchPropertiesCheckInParameter"
+                    },
+                    {
+                        "$ref": "#/components/parameters/SearchPropertiesCheckOutParameter"
+                    },
+                    {
+                        "$ref": "#/components/parameters/SearchPropertiesGuestsParameter"
+                    },
+                    {
+                        "$ref": "#/components/parameters/SearchPropertiesPerPageParameter"
+                    },
+                    {
+                        "$ref": "#/components/parameters/SearchPropertiesPageParameter"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated list of matching properties, cheapest offer first",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/PropertyResource"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/offers/{offer}/reservations": {
+            "post": {
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Book an offer",
+                "operationId": "82e20d028db450f4711852116e75b70c",
+                "parameters": [
+                    {
+                        "name": "offer",
+                        "in": "path",
+                        "description": "Offer ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StoreReservationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Reservation created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/ReservationResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Offer not found"
+                    },
+                    "409": {
+                        "description": "Offer has no units available, or client_reference already used for another offer"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ImportOfferPayload": {
+                "required": [
+                    "external_id",
+                    "property",
+                    "check_in",
+                    "check_out",
+                    "max_guests",
+                    "price",
+                    "currency",
+                    "available_units",
+                    "expires_at"
+                ],
+                "properties": {
+                    "external_id": {
+                        "type": "string",
+                        "example": "offer-a-10001"
+                    },
+                    "property": {
+                        "$ref": "#/components/schemas/ImportPropertyPayload"
+                    },
+                    "check_in": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-10-10"
+                    },
+                    "check_out": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-10-15"
+                    },
+                    "max_guests": {
+                        "type": "integer",
+                        "example": 4
+                    },
+                    "price": {
+                        "description": "Minor currency units (cents)",
+                        "type": "integer",
+                        "example": 72500
+                    },
+                    "currency": {
+                        "type": "string",
+                        "example": "EUR",
+                        "maxLength": 3,
+                        "minLength": 3
+                    },
+                    "available_units": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-09-10T23:59:59Z"
+                    }
+                },
+                "type": "object"
+            },
+            "ImportPropertyPayload": {
+                "required": [
+                    "code",
+                    "name",
+                    "city"
+                ],
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "example": "BCN-0001"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Apartment near Sagrada Familia"
+                    },
+                    "city": {
+                        "type": "string",
+                        "example": "Barcelona"
+                    }
+                },
+                "type": "object"
+            },
+            "StoreImportRequest": {
+                "required": [
+                    "supplier",
+                    "external_import_id",
+                    "sent_at",
+                    "offers"
+                ],
+                "properties": {
+                    "supplier": {
+                        "description": "Supplier slug",
+                        "type": "string",
+                        "example": "supplier-a"
+                    },
+                    "external_import_id": {
+                        "type": "string",
+                        "example": "import-2026-09-01-001"
+                    },
+                    "sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-09-01T10:00:00Z"
+                    },
+                    "offers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ImportOfferPayload"
+                        },
+                        "minItems": 1
+                    }
+                },
+                "type": "object"
+            },
+            "StoreReservationRequest": {
+                "required": [
+                    "client_reference",
+                    "customer_name",
+                    "customer_email"
+                ],
+                "properties": {
+                    "client_reference": {
+                        "description": "Client-generated idempotency token",
+                        "type": "string",
+                        "example": "web-order-9f782b1c"
+                    },
+                    "customer_name": {
+                        "type": "string",
+                        "example": "John Smith"
+                    },
+                    "customer_email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "john@example.com"
+                    }
+                },
+                "type": "object"
+            },
+            "ImportResource": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 15
+                    },
+                    "supplier": {
+                        "type": "string",
+                        "example": "supplier-a"
+                    },
+                    "external_import_id": {
+                        "type": "string",
+                        "example": "import-2026-09-01-001"
+                    },
+                    "sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-09-01T10:00:00Z"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "completed",
+                        "enum": [
+                            "pending",
+                            "processing",
+                            "completed",
+                            "failed"
+                        ]
+                    },
+                    "total_offers": {
+                        "type": "integer",
+                        "example": 20
+                    },
+                    "processed_offers": {
+                        "type": "integer",
+                        "example": 20
+                    },
+                    "error": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-09-01T10:00:02Z"
+                    },
+                    "completed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-09-01T10:00:04Z",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "ImportStatusResource": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 15
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "pending",
+                        "enum": [
+                            "pending",
+                            "processing",
+                            "completed",
+                            "failed"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "PropertyResource": {
+                "properties": {
+                    "code": {
+                        "description": "Expects `bestOffer.supplier` eager-loaded, as done by\n{@see \\App\\Actions\\SearchPropertiesAction}.",
+                        "type": "string",
+                        "example": "BCN-0001"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Apartment near Sagrada Familia"
+                    },
+                    "city": {
+                        "type": "string",
+                        "example": "Barcelona"
+                    },
+                    "best_offer": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "example": 125
+                            },
+                            "supplier": {
+                                "type": "string",
+                                "example": "supplier-a"
+                            },
+                            "price": {
+                                "type": "integer",
+                                "example": 72500
+                            },
+                            "currency": {
+                                "type": "string",
+                                "example": "EUR"
+                            },
+                            "available_units": {
+                                "type": "integer",
+                                "example": 2
+                            },
+                            "expires_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "example": "2026-09-10T23:59:59Z"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "ReservationResource": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 42
+                    },
+                    "offer_id": {
+                        "type": "integer",
+                        "example": 125
+                    },
+                    "client_reference": {
+                        "type": "string",
+                        "example": "web-order-9f782b1c"
+                    },
+                    "customer_name": {
+                        "type": "string",
+                        "example": "John Smith"
+                    },
+                    "customer_email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "john@example.com"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "confirmed",
+                        "enum": [
+                            "created",
+                            "confirmed",
+                            "cancelled"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-09-01T10:05:00Z"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "parameters": {
+            "SearchPropertiesCityParameter": {
+                "name": "city",
+                "in": "query",
+                "required": false,
+                "schema": {
+                    "type": "string"
+                },
+                "example": "Barcelona"
+            },
+            "SearchPropertiesCheckInParameter": {
+                "name": "check_in",
+                "in": "query",
+                "required": true,
+                "schema": {
+                    "type": "string",
+                    "format": "date"
+                },
+                "example": "2026-10-10"
+            },
+            "SearchPropertiesCheckOutParameter": {
+                "name": "check_out",
+                "in": "query",
+                "required": true,
+                "schema": {
+                    "type": "string",
+                    "format": "date"
+                },
+                "example": "2026-10-15"
+            },
+            "SearchPropertiesGuestsParameter": {
+                "name": "guests",
+                "in": "query",
+                "required": true,
+                "schema": {
+                    "type": "integer"
+                },
+                "example": 2
+            },
+            "SearchPropertiesPerPageParameter": {
+                "name": "per_page",
+                "in": "query",
+                "required": false,
+                "schema": {
+                    "type": "integer"
+                },
+                "example": 10
+            },
+            "SearchPropertiesPageParameter": {
+                "name": "page",
+                "in": "query",
+                "required": false,
+                "schema": {
+                    "type": "integer"
+                },
+                "example": 1
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Imports",
+            "description": "Imports"
+        },
+        {
+            "name": "Properties",
+            "description": "Properties"
+        },
+        {
+            "name": "Reservations",
+            "description": "Reservations"
+        }
+    ]
+}

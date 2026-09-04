@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Database\Factories\OfferFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -83,5 +84,25 @@ final class Offer extends Model
             'price' => 'integer',
             'available_units' => 'integer',
         ];
+    }
+
+    /**
+     * @return Attribute<string, string>
+     */
+    protected function checkIn(): Attribute
+    {
+        return Attribute::make(
+            set: fn (mixed $value): string => Carbon::parse($value)->toDateString(),
+        );
+    }
+
+    /**
+     * @return Attribute<string, string>
+     */
+    protected function checkOut(): Attribute
+    {
+        return Attribute::make(
+            set: fn (mixed $value): string => Carbon::parse($value)->toDateString(),
+        );
     }
 }
