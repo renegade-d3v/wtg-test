@@ -1,0 +1,62 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+    image: wtg-app:local
+    container_name: wtg-app
+    working_dir: /var/www
+    entrypoint: ["/var/www/.docker/entrypoint.sh"]
+    volumes:
+      - .:/var/www
+    environment:
+      - APP_ENV=local
+    depends_on:
+      - db
+      - redis
+    networks:
+      - wtg
+
+  db:
+    image: mysql:8.0
+    container_name: wtg-app-db
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=wtg_db
+      - MYSQL_USER=wtg_app
+      - MYSQL_PASSWORD=root
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./.docker/database/:/var/lib/mysql
+    networks:
+      - wtg
+
+  redis:
+    image: redis:7-alpine
+    container_name: wtg-app-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./.docker/redis/:/data
+    networks:
+      - wtg
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: wtg-app-nginx
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+    volumes:
+      - .:/var/www
+      - ./.docker/local/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - wtg
+
+networks:
+  wtg:
+    driver: bridge
